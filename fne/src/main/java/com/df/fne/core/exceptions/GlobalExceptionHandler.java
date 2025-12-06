@@ -1,5 +1,6 @@
 package com.df.fne.core.exceptions;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,15 +18,29 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
 
-        @ExceptionHandler(MethodArgumentNotValidException.class)
-        public ResponseEntity<?> handleValidationErrors(MethodArgumentNotValidException ex) {
-            Map<String, String> errors = new HashMap<>();
+     @ExceptionHandler(MethodArgumentNotValidException.class)
+     public ResponseEntity<?> handleValidationErrors(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
 
-            ex.getBindingResult().getFieldErrors()
-                    .forEach(err -> errors.put(err.getField(), err.getDefaultMessage()));
+        ex.getBindingResult().getFieldErrors()
+              .forEach(err -> errors.put(err.getField(), err.getDefaultMessage()));
 
-            return ResponseEntity.badRequest().body(errors);
+        return ResponseEntity.badRequest().body(errors);
+     }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+        String message;
+
+        if (rootMsg != null && rootMsg.contains("uk_fgbkimhttkgo5g428sjc5rk7t")) {
+            message = "nameReasonSocial already exist";
+        } else {
+            message = "Database Error";
         }
+
+        return ResponseEntity.badRequest().body(Map.of("message", message));
+    }
 
 
     @ExceptionHandler(AccessDeniedException.class)

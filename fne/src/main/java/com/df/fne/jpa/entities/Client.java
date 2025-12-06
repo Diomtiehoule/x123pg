@@ -29,8 +29,4 @@ public class Client extends UserDateAudit {
     private String phone;
     private String email;
     private String address;
-
-    @ManyToOne
-    @JoinColumn(name = "businessUnits_id")
-    private BusinessUnits businessUnits;
 }

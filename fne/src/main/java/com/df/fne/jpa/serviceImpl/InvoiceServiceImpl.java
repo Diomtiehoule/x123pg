@@ -2,9 +2,12 @@ package com.df.fne.jpa.serviceImpl;
 
 import com.df.fne.core.domaines.InvoiceDto;
 import com.df.fne.core.domaines.InvoiceItemsDto;
+import com.df.fne.core.domaines.enums.PaymentMethod;
 import com.df.fne.core.exceptions.NotFoundException;
+import com.df.fne.core.mappers.InvoiceItemsMapper;
 import com.df.fne.core.mappers.InvoiceMapper;
 import com.df.fne.core.services.InvoiceService;
+import com.df.fne.core.utils.RandomGenerator;
 import com.df.fne.infras.CertificateDgeService;
 import com.df.fne.jpa.entities.*;
 import com.df.fne.jpa.repositories.InvoiceRepository;
@@ -24,15 +27,17 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
     private final InvoiceMapper invoiceMapper;
+    private final InvoiceItemsMapper invoiceItemsMapper;
     private final CertificateDgeService certificateDgeService;
     private final ObjectMapper mapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    public InvoiceServiceImpl(InvoiceMapper invoiceMapper , InvoiceRepository invoiceRepository , CertificateDgeService certificateDgeService , UserRepository userRepository){
+    public InvoiceServiceImpl(InvoiceMapper invoiceMapper , InvoiceRepository invoiceRepository , CertificateDgeService certificateDgeService , UserRepository userRepository , InvoiceItemsMapper invoiceItemsMapper){
         this.invoiceMapper = invoiceMapper;
         this.userRepository = userRepository;
         this.invoiceRepository = invoiceRepository;
         this.certificateDgeService = certificateDgeService;
+        this.invoiceItemsMapper = invoiceItemsMapper;
     }
 
     @Override
@@ -56,8 +61,10 @@ public class InvoiceServiceImpl implements InvoiceService {
 
 
         attachCustomTaxes(invoice, dto);
+        String invoiceNumber = RandomGenerator.generateRandomCode(10);
 
         invoice.setStatusFne("PENDING");
+        invoice.setInvoiceNumber(invoiceNumber);
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
 
@@ -122,71 +129,27 @@ public class InvoiceServiceImpl implements InvoiceService {
 
 
     @Override
+    @Transactional
     public InvoiceDto update(InvoiceDto invoiceDto, UUID id) {
-
         Invoice existingInvoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Invoice not found"));
 
-        existingInvoice.setInvoiceNumber(invoiceDto.getInvoiceNumber());
-        existingInvoice.setInvoiceDate(invoiceDto.getInvoiceDate());
-        existingInvoice.setInvoiceType(invoiceDto.getInvoiceType());
-        existingInvoice.setSource(invoiceDto.getSource());
-        existingInvoice.setPaymentMethod(invoiceDto.getPaymentMethod());
-        existingInvoice.setTemplate(invoiceDto.getTemplate());
-        existingInvoice.setPointOfSale(invoiceDto.getPointOfSale());
-        existingInvoice.setCurrency(invoiceDto.getCurrency());
-        existingInvoice.setCurrencyRate(invoiceDto.getCurrencyRate());
-        existingInvoice.setEstablishment(invoiceDto.getEstablishment());
-        existingInvoice.setClientSellerName(invoiceDto.getClientSellerName());
-        existingInvoice.setCommercialMessage(invoiceDto.getCommercialMessage());
-        existingInvoice.setFooter(invoiceDto.getFooter());
-        existingInvoice.setRne(invoiceDto.isRne());
-        existingInvoice.setRneReceipt(invoiceDto.getRneReceipt());
-        existingInvoice.setStatusFne(invoiceDto.getStatusFne());
-        existingInvoice.setFneMessageReturn(invoiceDto.getFneMessageReturn());
-        existingInvoice.setFneReference(invoiceDto.getFneReference());
-        existingInvoice.setFneToken(invoiceDto.getFneToken());
-        existingInvoice.setFneId(invoiceDto.getFneId());
-        existingInvoice.setFneCc(invoiceDto.getFneCc());
-        existingInvoice.setFneBalanceSticker(invoiceDto.getFneBalanceSticker());
+        invoiceMapper.updateInvoiceFromDto(invoiceDto, existingInvoice);
 
-        existingInvoice.getItems().clear();
         if (invoiceDto.getItems() != null) {
-            for (InvoiceItemsDto itemDto : invoiceDto.getItems()) {
-                InvoiceItems item = new InvoiceItems();
-                item.setItemRef(itemDto.getItemRef());
-                item.setDescription(itemDto.getDescription());
-                item.setQuantity(itemDto.getQuantity());
-                item.setUnitPrice(itemDto.getUnitPrice());
-                item.setDiscountAmount(itemDto.getDiscountAmount());
-                item.setMeasureUnit(itemDto.getMeasureUnit());
-
+            existingInvoice.getItems().clear();
+            invoiceDto.getItems().forEach(itemDto -> {
+                InvoiceItems item = invoiceItemsMapper.toEntity(itemDto);
                 item.setInvoice(existingInvoice);
-
-
-                if (itemDto.getCustomTaxes() != null) {
-                    for (InvoiceItemsDto.CustomTaxDto ctDto : itemDto.getCustomTaxes()) {
-                        ItemTax tax = new ItemTax();
-                        tax.setName(ctDto.getName());
-                        tax.setAmount(ctDto.getAmount());
-                        tax.setInvoiceItem(item);
-                        if (item.getCustomTaxes() == null) {
-                            item.setCustomTaxes(new ArrayList<>());
-                        }
-                        item.getCustomTaxes().add(tax);
-                    }
-                }
-
                 existingInvoice.getItems().add(item);
-            }
+            });
         }
 
-
         Invoice savedInvoice = invoiceRepository.save(existingInvoice);
-
-
         return invoiceMapper.toDto(savedInvoice);
     }
+
+
 
 
     @Override
