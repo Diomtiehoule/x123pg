@@ -24,7 +24,10 @@ public class BusinessUnits extends UserDateAudit {
     private String description;
 
     @OneToMany(mappedBy = "businessUnits", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Client> clients = new ArrayList<>();
+    private List<User> users = new ArrayList<>();
+
+    @OneToMany(mappedBy = "businessUnits", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Invoice> invoices = new ArrayList<>();
 
     @OneToMany(mappedBy = "businessUnits", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AuditLog> audits = new ArrayList<>();

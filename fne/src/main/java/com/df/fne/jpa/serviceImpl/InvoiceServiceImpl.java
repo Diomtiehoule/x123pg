@@ -6,13 +6,14 @@ import com.df.fne.core.exceptions.NotFoundException;
 import com.df.fne.core.mappers.InvoiceMapper;
 import com.df.fne.core.services.InvoiceService;
 import com.df.fne.infras.CertificateDgeService;
-import com.df.fne.jpa.entities.Invoice;
-import com.df.fne.jpa.entities.InvoiceItems;
-import com.df.fne.jpa.entities.ItemTax;
+import com.df.fne.jpa.entities.*;
 import com.df.fne.jpa.repositories.InvoiceRepository;
+import com.df.fne.jpa.repositories.UserRepository;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -21,94 +22,111 @@ import java.util.*;
 public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
+    private final UserRepository userRepository;
     private final InvoiceMapper invoiceMapper;
     private final CertificateDgeService certificateDgeService;
+    private final ObjectMapper mapper = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    public InvoiceServiceImpl(InvoiceMapper invoiceMapper , InvoiceRepository invoiceRepository , CertificateDgeService certificateDgeService){
+    public InvoiceServiceImpl(InvoiceMapper invoiceMapper , InvoiceRepository invoiceRepository , CertificateDgeService certificateDgeService , UserRepository userRepository){
         this.invoiceMapper = invoiceMapper;
+        this.userRepository = userRepository;
         this.invoiceRepository = invoiceRepository;
         this.certificateDgeService = certificateDgeService;
     }
 
     @Override
     @Transactional
-    public InvoiceDto create(InvoiceDto invoiceDto) {
+    public InvoiceDto create(InvoiceDto dto) {
 
-        Invoice invoice = invoiceMapper.toEntity(invoiceDto);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("user connecté"+ auth);
+        String username = auth.getName();
+        System.out.println("username"+ username);
 
-        if (invoice.getItems() != null) {
-            for (InvoiceItems item : invoice.getItems()) {
-                item.setInvoice(invoice);
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
 
-                List<InvoiceItemsDto.CustomTaxDto> customTaxesDto =
-                        invoiceDto.getItems().stream()
-                                .filter(i -> i.getItemRef().equals(item.getItemRef()))
-                                .findFirst()
-                                .map(InvoiceItemsDto::getCustomTaxes)
-                                .orElse(Collections.emptyList());
+        BusinessUnits bu = user.getBusinessUnits();
 
-                for (InvoiceItemsDto.CustomTaxDto ctDto : customTaxesDto) {
-                    ItemTax tax = new ItemTax();
-                    tax.setName(ctDto.getName());
-                    tax.setAmount(ctDto.getAmount());
-                    item.addCustomTax(tax);
-                }
-            }
-        }
+        Invoice invoice = invoiceMapper.toEntity(dto);
+
+        invoice.setUser(user);
+        invoice.setBusinessUnits(bu);
+
+
+        attachCustomTaxes(invoice, dto);
+
+        invoice.setStatusFne("PENDING");
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
 
-        Map<String, Object> response = certificateDgeService.certificate(savedInvoice);
-        System.out.println("response DGE : " + response);
+        Map<String, Object> dgResponse = certificateDgeService.certificate(savedInvoice);
+        updateInvoiceWithDgeResponse(savedInvoice, dgResponse);
 
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        Invoice finalInvoice = invoiceRepository.save(savedInvoice);
 
-            String bodyJson = (String) response.get("body");
-            Map<String, Object> body = mapper.readValue(bodyJson, Map.class);
-
-            String ncc = (String) body.get("ncc");
-            String reference = (String) body.get("reference");
-            String fneToken = (String) body.get("token");
-
-            Map<String, Object> invoiceResp = (Map<String, Object>) body.get("invoice");
-            String fneId = (String) invoiceResp.get("id");
-            String clientNcc = (String) invoiceResp.get("clientNcc");
-
-            savedInvoice.setFneId(fneId);
-            savedInvoice.setFneToken(fneToken);
-            savedInvoice.setFneCc(clientNcc != null ? clientNcc : ncc);
-            savedInvoice.setFneReference(reference);
-
-            savedInvoice.setResponseDgi(bodyJson);
-
-            Object status = response.get("status");
-            if (status != null) {
-                savedInvoice.setStatusFne("CERTIFICATED");
-            }
-
-        } catch (Exception e) {
-            System.out.println("Parsing FNE error: " + e.getMessage());
-            savedInvoice.setResponseDgi(response.toString());
-        }
-
-        return invoiceMapper.toDto(savedInvoice);
+        return invoiceMapper.toDto(finalInvoice);
     }
 
 
+    private void attachCustomTaxes(Invoice invoice, InvoiceDto dto) {
 
+        if (invoice.getItems() == null) return;
 
+        for (InvoiceItems item : invoice.getItems()) {
 
+            item.setInvoice(invoice);
+
+            dto.getItems().stream()
+                    .filter(i -> i.getItemRef().equals(item.getItemRef()))
+                    .findFirst()
+                    .map(InvoiceItemsDto::getCustomTaxes)
+                    .ifPresent(customTaxes ->
+                            customTaxes.forEach(t -> {
+                                ItemTax tax = new ItemTax();
+                                tax.setName(t.getName());
+                                tax.setAmount(t.getAmount());
+                                item.addCustomTax(tax);
+                            })
+                    );
+        }
+    }
+
+    private void updateInvoiceWithDgeResponse(Invoice invoice, Map<String, Object> dgiResponse) {
+
+        String bodyJson = (String) dgiResponse.get("body");
+
+        try {
+            Map<String, Object> body = mapper.readValue(bodyJson, Map.class);
+
+            Map<String, Object> invoiceResp = (Map<String, Object>) body.get("invoice");
+
+            invoice.setFneId((String) invoiceResp.get("id"));
+            invoice.setFneToken((String) body.get("token"));
+            invoice.setFneReference((String) body.get("reference"));
+            invoice.setFneCc(
+                    Optional.ofNullable((String) invoiceResp.get("clientNcc"))
+                            .orElse((String) body.get("ncc"))
+            );
+
+            invoice.setStatusFne("CERTIFICATED");
+            invoice.setResponseDgi(bodyJson);
+
+        } catch (Exception e) {
+            System.out.println("Error parsing DGE : " + e.getMessage());
+            invoice.setStatusFne("FAILED");
+            invoice.setResponseDgi(dgiResponse.toString());
+        }
+    }
 
 
     @Override
     public InvoiceDto update(InvoiceDto invoiceDto, UUID id) {
-        // 1️⃣ Récupérer la facture existante
+
         Invoice existingInvoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Invoice not found"));
 
-        // 2️⃣ Mettre à jour les champs simples
         existingInvoice.setInvoiceNumber(invoiceDto.getInvoiceNumber());
         existingInvoice.setInvoiceDate(invoiceDto.getInvoiceDate());
         existingInvoice.setInvoiceType(invoiceDto.getInvoiceType());
@@ -119,8 +137,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         existingInvoice.setCurrency(invoiceDto.getCurrency());
         existingInvoice.setCurrencyRate(invoiceDto.getCurrencyRate());
         existingInvoice.setEstablishment(invoiceDto.getEstablishment());
+        existingInvoice.setClientSellerName(invoiceDto.getClientSellerName());
+        existingInvoice.setCommercialMessage(invoiceDto.getCommercialMessage());
+        existingInvoice.setFooter(invoiceDto.getFooter());
         existingInvoice.setRne(invoiceDto.isRne());
-        existingInvoice.setNtsNumberReceipt(invoiceDto.getNtsNumberReceipt());
+        existingInvoice.setRneReceipt(invoiceDto.getRneReceipt());
         existingInvoice.setStatusFne(invoiceDto.getStatusFne());
         existingInvoice.setFneMessageReturn(invoiceDto.getFneMessageReturn());
         existingInvoice.setFneReference(invoiceDto.getFneReference());
@@ -129,8 +150,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         existingInvoice.setFneCc(invoiceDto.getFneCc());
         existingInvoice.setFneBalanceSticker(invoiceDto.getFneBalanceSticker());
 
-        // 3️⃣ Synchroniser les items
-        existingInvoice.getItems().clear(); // supprime les anciens items (orphanRemoval=true)
+        existingInvoice.getItems().clear();
         if (invoiceDto.getItems() != null) {
             for (InvoiceItemsDto itemDto : invoiceDto.getItems()) {
                 InvoiceItems item = new InvoiceItems();
@@ -141,15 +161,15 @@ public class InvoiceServiceImpl implements InvoiceService {
                 item.setDiscountAmount(itemDto.getDiscountAmount());
                 item.setMeasureUnit(itemDto.getMeasureUnit());
 
-                item.setInvoice(existingInvoice); // lien FK
+                item.setInvoice(existingInvoice);
 
-                // Ajouter les taxes personnalisées
+
                 if (itemDto.getCustomTaxes() != null) {
                     for (InvoiceItemsDto.CustomTaxDto ctDto : itemDto.getCustomTaxes()) {
                         ItemTax tax = new ItemTax();
                         tax.setName(ctDto.getName());
                         tax.setAmount(ctDto.getAmount());
-                        tax.setInvoiceItem(item); // lien FK
+                        tax.setInvoiceItem(item);
                         if (item.getCustomTaxes() == null) {
                             item.setCustomTaxes(new ArrayList<>());
                         }
@@ -157,15 +177,14 @@ public class InvoiceServiceImpl implements InvoiceService {
                     }
                 }
 
-                // Ajouter l'item à la facture
                 existingInvoice.getItems().add(item);
             }
         }
 
-        // 4️⃣ Sauvegarder la facture avec cascade
+
         Invoice savedInvoice = invoiceRepository.save(existingInvoice);
 
-        // 5️⃣ Retourner le DTO mis à jour
+
         return invoiceMapper.toDto(savedInvoice);
     }
 

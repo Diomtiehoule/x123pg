@@ -38,6 +38,9 @@ public class User extends UserDateAudit implements UserDetails {
     private List<AuditLog> audits = new ArrayList<>();
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Invoice> invoices = new ArrayList<>();
+    @ManyToOne
+    @JoinColumn(name = "businessUnits_id")
+    private BusinessUnits businessUnits;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

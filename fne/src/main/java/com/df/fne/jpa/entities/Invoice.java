@@ -5,6 +5,7 @@ import com.df.fne.core.domaines.enums.Currency;
 import com.df.fne.core.domaines.enums.InvoiceTemplate;
 import com.df.fne.core.domaines.enums.InvoiceType;
 import com.df.fne.core.domaines.enums.PaymentMethod;
+import com.fasterxml.jackson.annotation.JsonRawValue;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,10 +30,6 @@ public class Invoice extends UserDateAudit {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id")
-    private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "businessUnits_id")
@@ -62,18 +59,32 @@ public class Invoice extends UserDateAudit {
     private boolean isRne = false;
 
     @Column(columnDefinition = "TEXT")
-    private String ntsNumberReceipt;
-
+    private String rneReceipt;
+    private String clientNcc;
+    private String clientCompanyName;
+    private String clientEmail;
+    private String clientPhone;
     private String fneReference;
     @Column(columnDefinition = "TEXT")
     private String fneToken;
     private String fneId;
     private String fneCc;
-    private String statusFne;
+    private String statusFne = "PENDING";
+
+    @JsonRawValue
     @Column(columnDefinition = "TEXT")
     private String responseDgi;
-    @Column(nullable = true)
+
     private int fneBalanceSticker;
+
+    //----------
+    @Column(columnDefinition = "TEXT")
+    private String clientSellerName;
+    @Column(columnDefinition = "TEXT")
+    private String commercialMessage;
+    @Column(columnDefinition = "TEXT")
+    private String footer;
+    private int discount;
 
     @Column(columnDefinition = "TEXT")
     private String fneMessageReturn;

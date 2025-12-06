@@ -2,6 +2,7 @@ package com.df.fne.core.domaines;
 
 import com.df.fne.core.audits.UserDateAudit;
 import com.df.fne.core.domaines.enums.Role;
+import com.df.fne.jpa.entities.BusinessUnits;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -29,8 +30,6 @@ public class UserDto extends UserDateAudit {
     @NotBlank(message = "Email is required")
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
-    private Role role;
-    private boolean enable;
 
     public boolean isValid() {
         if (username == null || username.isEmpty()) {

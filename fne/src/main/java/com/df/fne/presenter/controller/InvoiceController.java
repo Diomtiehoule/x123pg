@@ -3,13 +3,16 @@ package com.df.fne.presenter.controller;
 import com.df.fne.core.domaines.InvoiceDto;
 import com.df.fne.core.services.InvoiceService;
 import com.df.fne.presenter.response.GenericResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("api/invoice")
+@Validated
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
@@ -19,7 +22,7 @@ public class InvoiceController {
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody  InvoiceDto invoiceDto){
+    public ResponseEntity<?> create(@Valid @RequestBody  InvoiceDto invoiceDto){
         return ResponseEntity.ok(
                 GenericResponse.success(invoiceService.create(invoiceDto), "Invoice Created successfully")
         );

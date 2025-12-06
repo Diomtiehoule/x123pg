@@ -37,15 +37,19 @@ public class CertificateDgeService {
         payload.put("isRne", invoice.isRne());
 
         if (invoice.isRne()) {
-            payload.put("rne", invoice.getNtsNumberReceipt());
+            payload.put("rne", invoice.getRneReceipt());
         }
 
-        payload.put("clientCompanyName", invoice.getClient().getNameReasonSocial());
-        payload.put("clientPhone", invoice.getClient().getPhone());
-        payload.put("clientEmail", invoice.getClient().getEmail());
+        payload.put("clientCompanyName", invoice.getClientCompanyName());
+        payload.put("clientPhone", invoice.getClientPhone());
+        payload.put("clientEmail", invoice.getClientEmail());
+        payload.put("clientSellerName", invoice.getClientSellerName());
+        payload.put("commercialMessage", invoice.getCommercialMessage());
+        payload.put("footer", invoice.getFooter());
+        payload.put("discount", invoice.getDiscount());
 
         if ("B2B".equalsIgnoreCase(invoice.getTemplate().toString())) {
-            payload.put("clientNcc", invoice.getClient().getTaxPayerAccountNumber());
+            payload.put("clientNcc", invoice.getClientNcc());
         }
 
         payload.put("pointOfSale", invoice.getPointOfSale());
