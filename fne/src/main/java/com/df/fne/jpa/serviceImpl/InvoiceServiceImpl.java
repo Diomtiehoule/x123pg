@@ -76,6 +76,14 @@ public class InvoiceServiceImpl implements InvoiceService {
         return invoiceMapper.toDto(finalInvoice);
     }
 
+    @Override
+    public List<InvoiceDto> filterInvoice(String template, String company, String pos) {
+        List<Invoice> invoices = invoiceRepository.invoiceFilter(template, company, pos);
+        return invoices.stream()
+                .map(invoiceMapper::toDto)
+                .toList();
+    }
+
 
     private void attachCustomTaxes(Invoice invoice, InvoiceDto dto) {
 

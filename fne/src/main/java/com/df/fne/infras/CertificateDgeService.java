@@ -32,7 +32,7 @@ public class CertificateDgeService {
 
 
         payload.put("invoiceType", invoice.getInvoiceType());
-        payload.put("paymentMethod", invoice.getPaymentMethod());
+        payload.put("paymentMethod", invoice.getPaymentMethod().getValue());
         payload.put("template", invoice.getTemplate());
         payload.put("isRne", invoice.isRne());
 

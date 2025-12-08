@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -39,6 +40,17 @@ public class InvoiceController {
     public ResponseEntity<?> getAll(){
         return ResponseEntity.ok(
                 GenericResponse.success(invoiceService.getAll(), "Invoice List")
+        );
+    }
+
+    @GetMapping("/research")
+    public ResponseEntity<?> filterInvoices(
+            @RequestParam(required = false) String template,
+            @RequestParam(required = false) String company,
+            @RequestParam(required = false) String pos) {
+
+        return ResponseEntity.ok(
+                GenericResponse.success(invoiceService.filterInvoice(template, company, pos), "Invoices found")
         );
     }
 }

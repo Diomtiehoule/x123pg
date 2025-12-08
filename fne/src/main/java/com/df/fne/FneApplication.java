@@ -1,5 +1,6 @@
 package com.df.fne;
 
+import com.df.fne.core.domaines.enums.PaymentMethod;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 

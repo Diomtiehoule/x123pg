@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum PaymentMethod {
     cash("cash"),
-    mobile_money("mobile-money"),
+    mobileMoney("mobile-money"),
     card("card"),
     check("check"),
     deferred("deferred"),
