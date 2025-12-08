@@ -26,11 +26,19 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     public ClientDto create(ClientDto clientDto) {
-        clientRepository.findByNameReasonSocial(clientDto.getNameReasonSocial())
-                .orElseThrow(() -> new BadRequestException("Client or ReasonSocial already exist"));
-        Client client = clientRepository.save(clientMapper.toEntity(clientDto));
+
+        Client clientExist = clientRepository.findByNameReasonSocial(clientDto.getNameReasonSocial());
+
+        if (clientExist != null) {
+            throw new BadRequestException("Client or ReasonSocial already exist");
+        }
+
+        Client client = clientMapper.toEntity(clientDto);
+        client = clientRepository.save(client);
+
         return clientMapper.toDto(client);
     }
+
 
     @Override
     public ClientDto update(ClientDto clientDto, UUID id) {
