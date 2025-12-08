@@ -27,17 +27,31 @@ public class ClientServiceImpl implements ClientService {
     @Override
     public ClientDto create(ClientDto clientDto) {
 
-        Client clientExist = clientRepository.findByNameReasonSocial(clientDto.getNameReasonSocial());
+        Client existing = clientRepository.findOneByUniqueFields(
+                clientDto.getNameReasonSocial(),
+                clientDto.getEmail(),
+                clientDto.getPhone()
+        );
 
-        if (clientExist != null) {
-            throw new BadRequestException("Client or ReasonSocial already exist");
+        if (existing != null) {
+
+            if (existing.getNameReasonSocial().equals(clientDto.getNameReasonSocial())) {
+                throw new BadRequestException("Client or ReasonSocial already exist");
+            }
+
+            if (existing.getEmail().equals(clientDto.getEmail())) {
+                throw new BadRequestException("Email already exist");
+            }
+
+            if (existing.getPhone().equals(clientDto.getPhone())) {
+                throw new BadRequestException("Phone already exist");
+            }
         }
 
-        Client client = clientMapper.toEntity(clientDto);
-        client = clientRepository.save(client);
-
+        Client client = clientRepository.save(clientMapper.toEntity(clientDto));
         return clientMapper.toDto(client);
     }
+
 
 
     @Override
@@ -71,6 +85,7 @@ public class ClientServiceImpl implements ClientService {
         if(client == null){
             throw  new NotFoundException("Client not found");
         }
+
         return clientMapper.toDto(client);
     }
 }

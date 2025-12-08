@@ -19,14 +19,16 @@ public class Client extends UserDateAudit {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
     private String reference;
     @Column(unique = true)
     private String nameReasonSocial;
+    @Column(unique = true)
     private String taxPayerAccountNumber;
     @Enumerated(EnumType.STRING)
     private InvoiceTemplate clientType;
+    @Column(unique = true)
     private String phone;
+    @Column(unique = true)
     private String email;
     private String address;
 }

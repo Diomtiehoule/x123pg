@@ -15,7 +15,6 @@ import java.util.UUID;
 @ToString
 public class ClientDto extends UserDateAudit {
     private UUID id;
-
     private String reference;
     private String nameReasonSocial;
     private String taxPayerAccountNumber;
@@ -23,5 +22,4 @@ public class ClientDto extends UserDateAudit {
     private String phone;
     private String email;
     private String address;
-    private BusinessUnitsDto businessUnits;
 }
