@@ -67,7 +67,10 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     public ClientDto findByNameReasonSocial(String nameReasonSocial) {
-        Client client = clientRepository.findByNameReasonSocial(nameReasonSocial).orElseThrow(() -> new NotFoundException("Client not found"));
+        Client client = clientRepository.findByNameReasonSocial(nameReasonSocial);
+        if(client == null){
+            throw  new NotFoundException("Client not found");
+        }
         return clientMapper.toDto(client);
     }
 }
